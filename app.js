@@ -28,7 +28,6 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({
   extended: true
 }));
-app.use(bodyParser.text());
 
 // cookieParser and session should use the same secret
 app.use(cookieParser(secret));

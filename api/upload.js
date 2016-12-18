@@ -1,37 +1,58 @@
 const express = require('express');
 const multer = require('multer');
 const bencode = require('bencode');
-const cyrpto = require('crypto');
+const crypto = require('crypto');
 const db = require('./../db.js');
-const _ = require('lodash');
+const fs = require('fs');
 
 const app = express.Router();
 
-const storage = multer.diskStorage({
+const util = require('util');
+
+/*const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, `/home/justin/torrents/${(new Date).getMonth()}`);
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
+    console.log(util.inspect(file));
+
+    cb(null, `${process.env.TORRENT_DIR}${year}/${month}/`);
   },
   filename: (req, file, cb) => {
-    cb(null, file.hash);
+    cb(null, `${file.hash}.torrent`);
   }
-});
+});*/
 
-const fileFilter = (req, file, cb) => {
-  file.hash = hashTorrent(stripTrackers(file.buffer));
-  cb(null, true);
+const saveToDisk = torrent => {
+  const now = new Date();
+  const month = now.getMonth() + 1;
+  const year = now.getFullYear();
+  const path = `${process.env.TORRENT_DIR}${year}/${month}/${torrent.hash}.torrent`;
+
+  return new Promise((resolve, reject) => {
+    fs.writeFile(path, new Buffer(torrent.buffer), err => {
+      if (err) {
+        return reject(err);
+      }
+      torrent.path = path;
+      return resolve(torrent);
+    });
+  });
 };
 
-const upload = multer({ storage, fileFilter });
+const storage = multer.memoryStorage();
+
+const upload = multer({ storage });
 
 const stripTrackers = torrentBuffer => {
   const torrent = bencode.decode(torrentBuffer);
-  delete torrent.announce;
+  delete torrent['announce'];
   return bencode.encode(torrent);
 };
 
 const hashTorrent = torrentBuffer => {
   const hash = crypto.createHash('sha256');
-  const code = process.env.COOKIE_SECRET + torrentBuffer.toString() + Math.floor((new Date).getTime() / 1000).toString();
+  const code = process.env.COOKIE_SECRET + torrentBuffer.toString('utf8') + Math.floor((new Date).getTime() / 1000).toString();
   hash.update(code);
   return hash.digest('hex');
 };
@@ -51,7 +72,7 @@ const verifyAlbum = group => {
     }
   });
 
-  requiredField.forEach(field => {
+  requiredFields.forEach(field => {
     if (!verifiedGroup.has(field)) {
       return Promise.reject(new Error('Missing required fields.'));
     }
@@ -72,7 +93,7 @@ const createGroup = group => {
   return verifyAlbum(group).then(verifiedGroup => {
     const keys = verifiedGroup.keys();
     const values = verifiedGroup.values();
-    const length = verifiedGroup.size();
+    const length = verifiedGroup.size;
 
     return db.query(`insert into tracker.groups (${keys.toString()}) values (${upTo(length)}) return id`, values);
   });
@@ -82,20 +103,32 @@ const store = (torrent, group) => {
   return db.query('insert into tracker.torrents (hash, path, group) values ($1, $2, $3)', [torrent.hash, torrent.path, group]);
 };
 
-app.post('/upload', upload.fields([{ name: 'torrent', maxCount: 1 }]), (req, res) => {
-  let group = req.body.group;
-  if (typeof (group) !== 'Number') {
-    createGroup(group).then(result => {
-      group = result.rows[0].id;
-    }).catch(err => {
-      res.send(400);
-    });
-  }
-  store(req.file, group).then(result => {
-    const torrentId = result.rows[0].id;
-    if (torrentId) {
-      res.send(200, { id: torrentId });
+const torrentUpload = upload.fields([{ name: 'torrent', maxCount: 1 }]);
+
+app.post('/upload', torrentUpload, (req, res) => {
+  //app.post('/upload', upload.single('torrent'), (req, res) => {
+  const torrent = stripTrackers(req.files.torrent[0].buffer);
+  const group = JSON.parse(req.body.group);
+
+  torrent.hash = hashTorrent(torrent.buffer);
+  
+  saveToDisk(torrent).then(torrent => {
+    if (typeof (group) !== 'Number') {
+      return createGroup(group).then(result => {
+        group = result.rows[0].id;
+        return group
+      }).then(group => {
+        return store(torrent, group).then(result => {
+          const torrentId = result.rows[0].id;
+          if (torrentId) {
+            res.send(200, { id: torrentId });
+          }
+        });
+      })
     }
+  }).catch(err => {
+    console.log(err);
+    res.sendStatus(500);
   });
 });
 

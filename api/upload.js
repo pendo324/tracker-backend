@@ -8,8 +8,6 @@ const _ = require('lodash');
 
 const app = express.Router();
 
-const util = require('util');
-
 const verificationTypes = {
   group: {
     album: {

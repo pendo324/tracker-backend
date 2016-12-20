@@ -4,7 +4,6 @@ const bencode = require('bencode');
 const crypto = require('crypto');
 const db = require('./../db.js');
 const fs = require('fs');
-const _ = require('lodash');
 
 const app = express.Router();
 
@@ -25,6 +24,15 @@ const verificationTypes = {
   }
 };
 
+/**
+ * Saves torrent file to disk
+ *
+ * Saves torrent to the path defined in the .env file.
+ * Also adds a path property to the torrent Object
+ * 
+ * @param  torrent: torrent Object
+ * @return Promise<torrent | error>
+ */
 const saveToDisk = torrent => {
   const now = new Date();
   const month = now.getMonth() + 1;
@@ -46,22 +54,29 @@ const storage = multer.memoryStorage();
 
 const upload = multer({ storage });
 
+/**
+ * Processes a torrent
+ *
+ * Removes trackers from torrent
+ * Adds fileList and hash fields to the torrent
+ * 
+ * @param  torrent: torrent Object
+ * @return Promise<torrent | error>
+ */
 const processTorrent = torrent => {
   const decodedTorrent = bencode.decode(torrent.buffer);
-  const processedTorrent = _.cloneDeep(torrent);
-
   delete decodedTorrent['announce'];
 
-  processedTorrent.fileList = [];
-  processedTorrent.totalFileSize = decodedTorrent.info.files.reduce((total, file) => {
-    processedTorrent.fileList.push({ fileName: file.path, fileSize: file.length });
+  torrent.fileList = [];
+  torrent.totalFileSize = decodedTorrent.info.files.reduce((total, file) => {
+    torrent.fileList.push({ fileName: file.path, fileSize: file.length });
     return total += file.length;
   }, 0);
 
-  processedTorrent.buffer = bencode.encode(decodedTorrent);
-  processedTorrent.hash = hashTorrent(processedTorrent.buffer);
+  torrent.buffer = bencode.encode(decodedTorrent);
+  torrent.hash = hashTorrent(torrent.buffer);
 
-  return Promise.resolve(processedTorrent);
+  return Promise.resolve(torrent);
 };
 
 const hashTorrent = torrentBuffer => {
@@ -71,6 +86,17 @@ const hashTorrent = torrentBuffer => {
   return hash.digest('hex');
 };
 
+/**
+ * Verifies an Object
+ *
+ * Object verified against an element of verificationTypes
+ * Removes all extraneous fields on the input Object
+ * Throws error if required fields are missing
+ * 
+ * @param  input: Object to be verified
+ * @param  type: Field of the verificationTypes Object
+ * @return Promise<Map<torrent> | error>
+ */
 const verify = (input, type) => {
   const required = type.required;
   const allowed = type.allowed;
@@ -103,21 +129,43 @@ const upTo = to => {
   return upToArray.toString();
 };
 
+/**
+ * Gets the group_id that the input torrent should use
+ *
+ * Either uses the user provided group number or creates a new group if the
+ * user provides one, or creates a new group from the user provided data
+ * 
+ * @param  group: group user input
+ * @return Promise<number | error>
+ */
 const getGroup = group => {
-  if (typeof (group) === 'number') return Promise.resolve(group);
+  if (typeof (group) === 'number') {
+    return Promise.resolve(group);
+  }
   return verify(group, verificationTypes.group.album).then(verifiedGroup => {
     const keys = verifiedGroup.keys();
     const values = verifiedGroup.values();
     const length = verifiedGroup.size;
 
-    return db.query(`insert into tracker.groups (${[...keys].toString()}) values (${upTo(length)}) returning id`, [...values])
-      .then(result => {
+    return db.query(`insert into tracker.groups (${[...keys].toString()}) values (${upTo(length)}) returning id`,
+      [...values]).then(result => {
         group = result.rows[0].id;
         return group;
       });
   });
 };
 
+/**
+ * Stores a release to the database
+ *
+ * Verifies the releaseInfo and adds all of the metadata that is obtained from
+ * the other functions
+ * 
+ * @param  torrent: slightly modified user inputted torrent
+ * @param  group: group (user inputted id or new group id)
+ * @param  releaseInfo: extra user provided data
+ * @return Promise<number | error>
+ */
 const store = (torrent, group, releaseInfo) => {
   return verify(releaseInfo, verificationTypes.release.album).then(verifiedRelease => {
     // Add more information to the verified user input
@@ -131,7 +179,13 @@ const store = (torrent, group, releaseInfo) => {
     const values = verifiedRelease.values();
     const length = verifiedRelease.size;
 
-    return db.query(`insert into tracker.torrents (${[...keys].toString()}) values (${upTo(length)}) returning id, group_id`, [...values]);
+    return db.query(`insert into tracker.torrents (${[...keys].toString()}) values (${upTo(length)}) returning id, group_id`,
+      [...values]).then(result => {
+        return {
+          groupId: result.rows[0].group_id,
+          torrentId: result.rows[0].id
+        };
+      });
   })
 };
 
@@ -144,15 +198,13 @@ app.post('/upload', torrentUpload, (req, res) => {
 
   processTorrent(torrent).then(saveToDisk).then(torrent => {
     return getGroup(group).then(group => {
-      return store(torrent, group, releaseInfo).then(result => {
-        const torrentId = result.rows[0].id;
-        if (torrentId) {
-          res.send(200, { id: result.rows[0].group_id });
-        }
+      return store(torrent, group, releaseInfo).then(output => {
+        res.status(200).send(output);
       });
     });
   }).catch(err => {
     console.log(err);
+    res.sendStatus(500);
   });
 });
 

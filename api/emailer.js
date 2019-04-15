@@ -2,12 +2,15 @@ const nodemailer = require('nodemailer');
 // const sendmailTransport = require('nodemailer-sendmail-transport');
 
 const transporter = nodemailer.createTransport({
-  host: 'mail.topkek.us',
-  port: 465,
-  secure: true,
+  host: 'topkek.us',
+  port: 587,
+  secure: false,
   auth: {
     user: process.env.MAIL_USER,
     pass: process.env.MAIL_PASS
+  },
+  tls: {
+    rejectUnauthorized: false
   }
 });
 

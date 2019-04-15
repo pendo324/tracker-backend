@@ -29,6 +29,15 @@ const makeActivationCode = (username) => {
 };
 
 app.post('/create', async (req, res) => {
+  const requiredFields = ['username', 'password', 'email'];
+  if (
+    !requiredFields.every((rf) => Object.keys(req.body).find((k) => k === rf))
+  ) {
+    return res.status(403).json({
+      error: 'Missing required field(s)'
+    });
+  }
+
   try {
     await checkAccountExists(req.body.username, req.body.email);
     const activationCode = makeActivationCode(req.body.username);

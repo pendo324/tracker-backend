@@ -5,11 +5,11 @@ const app = express.Router();
 
 app.get('/activate/:code([a-zA-Z0-9]{64})', async (req, res) => {
   await db.query(
-    'update users set activated=$1, activation_code=$2, where activation_code=$3',
+    'update users set activated=$1, activation_code=$2 where activation_code=$3',
     [true, null, req.params.code]
   );
 
-  res.send(200);
+  res.sendStatus(200);
 });
 
 module.exports = app;

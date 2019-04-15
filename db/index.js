@@ -11,7 +11,7 @@ const config = {
 
 const pool = new Pool(config);
 
-pool.query('truncate users');
+// pool.query('truncate users');
 
 module.exports.query = (text, values) => {
   return pool.query(text, values);

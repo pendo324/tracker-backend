@@ -5,29 +5,36 @@
   "author": "pendo324",
   "license": "MIT",
   "dependencies": {
-    "bcrypt": "^0.8.7",
-    "bencode": "^0.11.0",
-    "bittorrent-tracker": "^8.0.12",
-    "body-parser": "^1.15.2",
-    "connect-pg-simple": "^3.1.2",
-    "cookie": "^0.3.1",
-    "cookie-parser": "^1.4.3",
-    "dotenv": "^2.0.0",
-    "express": "^4.14.0",
-    "express-session": "^1.14.2",
+    "bcrypt": "^3.0.5",
+    "bencode": "^2.0.1",
+    "bittorrent-tracker": "^9.11.0",
+    "body-parser": "^1.18.3",
+    "db-migrate-pg": "^0.5.0",
+    "dotenv": "^7.0.0",
+    "eslint-config-airbnb-base": "^13.1.0",
+    "express": "^4.16.4",
     "express-subdomain": "^1.0.5",
-    "multer": "^1.2.1",
-    "nodemailer": "^2.6.4",
-    "nodemailer-sendmail-transport": "^1.0.0",
-    "pg": "^6.1.0",
-    "pg-pool": "^1.5.0"
+    "jsonwebtoken": "^8.5.1",
+    "multer": "^1.4.1",
+    "nodemailer": "^6.1.0",
+    "nodemailer-sendmail-transport": "^1.0.2",
+    "pg": "^7.9.0",
+    "pg-pool": "^2.0.6",
+    "ulid": "^2.3.0"
   },
   "scripts": {
-    "start": "NODE_ENV=production node app.js",
-    "dev": "node --inspect & nodemon --debug app.js"
+    "start": "cross-env NODE_ENV=production node app.js",
+    "dev": "node --inspect & nodemon --debug app.js",
+    "migrate:create": "db-migrate create --config ./db/migrations/database.json --migrations-dir ./db/migrations",
+    "migrate:up": "db-migrate up --config ./db/migrations/database.json --migrations-dir ./db/migrations -e prod"
   },
   "devDependencies": {
-    "chokidar-cli": "^1.2.0",
-    "nodemon": "^1.11.0"
+    "cross-env": "^5.2.0",
+    "db-migrate": "^0.11.5",
+    "eslint": "latest",
+    "eslint-plugin-import": "^2.16.0",
+    "eslint-plugin-prettier": "^3.0.1",
+    "nodemon": "^1.18.11",
+    "prettier": "^1.17.0"
   }
 }

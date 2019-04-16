@@ -15,9 +15,7 @@ const transporter = nodemailer.createTransport({
 });
 
 const makeActivationURL = (activationCode) => {
-  return `http://${process.env.DOMAIN}:${
-    process.env.HTTP_PORT
-  }/activate/${activationCode}`;
+  return `${process.env.WEB_BASE}/activate/${activationCode}`;
 };
 
 module.exports.sendActivationEmail = (to, activationCode) => {

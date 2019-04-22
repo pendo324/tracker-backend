@@ -71,6 +71,14 @@ const animeSchema = Joi.object().keys({
 
 const TVShowSchema = animeSchema;
 
+const videoInfoSchema = Joi.object().keys({
+  title: Joi.string()
+    .min(1)
+    .required(),
+  description: Joi.string().optional(),
+  quality: Joi.string().length(26)
+});
+
 const validateAnime = async ({ release }) => {
   if (release.anime instanceof Object) {
     const { error: animeError } = Joi.validate(release.anime, animeSchema);
@@ -91,14 +99,6 @@ const validateAnime = async ({ release }) => {
     throw new Error(animeInfoError);
   }
 };
-
-const videoInfoSchema = Joi.object().keys({
-  title: Joi.string()
-    .min(1)
-    .required(),
-  description: Joi.string().optional(),
-  quality: Joi.string().length(26)
-});
 
 const movieSchema = Joi.object().keys({
   name: Joi.string()

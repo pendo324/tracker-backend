@@ -1,5 +1,7 @@
 const { ulid } = require('ulid');
 const { Pool } = require('pg');
+const createMusicRelease = require('./createMusicRelease');
+const createMovieRelease = require('./createMovieRelease');
 
 const config = {
   user: process.env.DB_USER,
@@ -106,8 +108,8 @@ const insertMusic = async ({ music, artistsToLink }, client) => {
 const insertMusicRelease = ({ musicId, torrentId, releaseInfo }, client) => {
   const clientOrPool = typeof client === 'undefined' ? pool : client;
   const musicReleaseId = ulid();
-  clientOrPool.query(
-    'insert into music_releases (id, encoding, quality, music_id, torrent_id, title, description) values ($1, $2, $3, $4, $5, $6, $7)',
+  return clientOrPool.query(
+    'insert into music_releases (id, encoding, quality, music_id, torrent_id, title, description) values ($1, $2, $3, $4, $5, $6, $7) returning id',
     [
       musicReleaseId,
       releaseInfo.encoding,
@@ -188,5 +190,7 @@ module.exports = {
   getMovie,
   insertMovie,
   insertVideoRelease,
-  pool
+  pool,
+  createMusicRelease,
+  createMovieRelease
 };

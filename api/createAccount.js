@@ -42,22 +42,28 @@ app.post('/create', async (req, res) => {
     await checkAccountExists(req.body.username, req.body.email);
     const activationCode = makeActivationCode(req.body.username);
     try {
-      await db.query(
-        'insert into users (id, username, password_hash, email, activation_code, activated) values ($1, $2, $3, $4, $5, $6)',
+      const userRes = await db.query(
+        'insert into users (id, username, password_hash, email, activated) values ($1, $2, $3, $4, $5) returning id',
         [
           ulid(),
           req.body.username,
           hashPassword(req.body.password),
           req.body.email,
-          activationCode,
           false
         ]
+      );
+
+      const userId = userRes.rows[0].id;
+
+      await db.query(
+        'insert into activation_codes (id, user_id, activation_code) values ($1, $2, $3)',
+        [ulid(), userId, activationCode]
       );
       res.sendStatus(200);
       emailer.sendActivationEmail(req.body.email, activationCode);
     } catch (err) {
       console.log(err);
-      res.sendStatus(503);
+      return res.sendStatus(503);
     }
   } catch (err) {
     console.log(err);

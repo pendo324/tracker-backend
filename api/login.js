@@ -19,9 +19,33 @@ app.post('/login', async (req, res) => {
 
   try {
     const result = await db.query(
-      'select username, id, password_hash from users where username=$1',
+      'select username, id, password_hash, activated from users where username=$1',
       [req.body.username]
     );
+
+    if (result.rows.length !== 1) {
+      return res.status(500).send();
+    }
+
+    const userId = result.rows[0].id;
+
+    const activatedRes = await db.query(
+      'select id from activation_codes where user_id = $1',
+      [userId]
+    );
+
+    if (activatedRes.rows.length > 0) {
+      return res.status(403).json({
+        error: 'User not activated'
+      });
+    }
+
+    if (!result.rows[0].activated) {
+      await db.query('update users set activated=$2 where id = $1', [
+        userId,
+        true
+      ]);
+    }
 
     if (bcrypt.compareSync(req.body.password, result.rows[0].password_hash)) {
       const token = jwt.sign(

@@ -14,12 +14,12 @@
     "eslint-config-airbnb-base": "^13.1.0",
     "express": "^4.16.4",
     "express-subdomain": "^1.0.5",
+    "joi": "^14.3.1",
     "jsonwebtoken": "^8.5.1",
     "multer": "^1.4.1",
     "nodemailer": "^6.1.0",
     "nodemailer-sendmail-transport": "^1.0.2",
-    "pg": "^7.9.0",
-    "pg-pool": "^2.0.6",
+    "pg": "^7.10.0",
     "ulid": "^2.3.0"
   },
   "scripts": {
